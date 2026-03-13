@@ -19,6 +19,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [0.4.0] — 2026-03-13
+
+### Corrigido
+- **`transformation.py`** — SQL do asset `matches_trusted` referenciava `home_team.team_name` e `away_team.team_name`, mas o JSON do StatsBomb usa nomes assimétricos: `home_team.home_team_name` e `away_team.away_team_name`. DuckDB lançava `BinderException: Could not find key "team_name" in struct`.
+  - Solução: corrigir os dois campos no SELECT para `home_team.home_team_name` e `away_team.away_team_name`.
+
+---
+
 ## [0.3.0] — 2026-03-13
 
 ### Corrigido

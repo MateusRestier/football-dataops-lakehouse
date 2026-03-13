@@ -177,6 +177,24 @@ Esse SET já está em `_configure_s3()` dentro de `transformation.py`. Se estive
 
 ---
 
+### `BinderException: Could not find key "team_name" in struct`
+
+**Sintoma:** Asset `matches_trusted` falha com:
+```
+_duckdb.BinderException: Binder Error: Could not find key "team_name" in struct
+Candidate Entries: "home_team_name", "home_team_gender", ...
+```
+
+**Causa:** O JSON do StatsBomb usa nomes assimétricos nos structs de equipe: dentro de `home_team` o campo chama `home_team_name`, e dentro de `away_team` chama `away_team_name`. O SQL original usava `home_team.team_name` (nome genérico inexistente).
+
+**Solução** (já aplicada em `transformation.py`):
+```sql
+home_team.home_team_name::VARCHAR  AS home_team,
+away_team.away_team_name::VARCHAR  AS away_team,
+```
+
+---
+
 ### `read_json_auto` falha com erro de schema
 
 **Sintoma:** `events_trusted` falha com erro de tipo ou schema incompatível ao ler os JSONs.
