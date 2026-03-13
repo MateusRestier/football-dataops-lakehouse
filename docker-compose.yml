@@ -1,0 +1,91 @@
+version: "3.8"
+
+x-dagster-env: &dagster-env
+  DAGSTER_HOME: /opt/dagster/app/dagster_home
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
+  MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+  DAGSTER_PG_HOST: postgres
+  DAGSTER_PG_USERNAME: dagster
+  DAGSTER_PG_PASSWORD: dagster
+  DAGSTER_PG_DB: dagster
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: dagster
+      POSTGRES_PASSWORD: dagster
+      POSTGRES_DB: dagster
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dagster"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dagster-webserver:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/app/workspace.yaml
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *dagster-env
+    volumes:
+      - .:/opt/dagster/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  dagster-daemon:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: dagster-daemon run
+    environment:
+      <<: *dagster-env
+    volumes:
+      - .:/opt/dagster/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  app-network:
+    driver: bridge

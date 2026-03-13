@@ -1,0 +1,4 @@
+load_from:
+  - python_module:
+      module_name: pipeline.definitions
+      location_name: football_pipeline
