@@ -16,12 +16,14 @@ any data reaches the trusted bucket.
 import pandas as pd
 import dagster as dg
 import great_expectations as gx
-from great_expectations.core.expectation_suite import ExpectationSuite
-from great_expectations.core.validation_definition import ValidationDefinition
-from great_expectations.checkpoint import Checkpoint
 
 from pipeline.resources import MinIOResource
-from pipeline.assets.ingestion import RAW_BUCKET, TARGET_COMPETITION_ID, TARGET_SEASON_ID
+from pipeline.assets.ingestion import (
+    RAW_BUCKET,
+    TARGET_COMPETITION_ID,
+    TARGET_SEASON_ID,
+    events_raw,
+)
 
 # Number of matches to validate as a representative sample
 VALIDATION_SAMPLE_SIZE = 5
@@ -49,21 +51,25 @@ def _flatten_events(events: list[dict]) -> list[dict]:
 def _run_gx_validation(df: pd.DataFrame, context: dg.AssetExecutionContext) -> None:
     """
     Runs a Great Expectations 1.x validation against a pandas DataFrame.
+    Uses an ephemeral (in-memory) context — no config files needed.
     Raises dagster.Failure if any expectation fails.
     """
-    gx_ctx = gx.get_context()
+    gx_ctx = gx.get_context(mode="ephemeral")
 
-    # Data source → asset → batch definition
+    # 1. Register the DataFrame as a data source
     data_source = gx_ctx.data_sources.add_pandas("statsbomb_events")
     data_asset = data_source.add_dataframe_asset(name="events_df")
     batch_definition = data_asset.add_batch_definition_whole_dataframe("full_batch")
 
-    # Expectation suite
-    suite = gx_ctx.suites.add(ExpectationSuite(name="events_suite"))
+    # 2. Define the expectation suite
+    suite = gx_ctx.suites.add(gx.ExpectationSuite(name="events_suite"))
 
-    suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column="event_id"))
-    suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column="period"))
-
+    suite.add_expectation(
+        gx.expectations.ExpectColumnValuesToNotBeNull(column="event_id")
+    )
+    suite.add_expectation(
+        gx.expectations.ExpectColumnValuesToNotBeNull(column="period")
+    )
     # ~5% of StatsBomb events are administrative (half starts, subs, etc.) and
     # have no location — mostly=0.99 accommodates that without false failures.
     suite.add_expectation(
@@ -77,23 +83,16 @@ def _run_gx_validation(df: pd.DataFrame, context: dg.AssetExecutionContext) -> N
         )
     )
 
-    # Validation definition wires suite → batch
-    validation_definition = gx_ctx.validation_definitions.add(
-        ValidationDefinition(
+    # 3. Wire suite + batch into a validation definition and run
+    vd = gx_ctx.validation_definitions.add(
+        gx.ValidationDefinition(
             name="events_validation",
             data=batch_definition,
             suite=suite,
         )
     )
 
-    checkpoint = gx_ctx.checkpoints.add(
-        Checkpoint(
-            name="events_checkpoint",
-            validation_definitions=[validation_definition],
-        )
-    )
-
-    result = checkpoint.run(batch_parameters={"dataframe": df})
+    result = vd.run(batch_parameters={"dataframe": df})
 
     context.log.info(f"GX validation success={result.success}")
 
@@ -107,7 +106,7 @@ def _run_gx_validation(df: pd.DataFrame, context: dg.AssetExecutionContext) -> N
 @dg.asset(
     key_prefix=["validated"],
     group_name="validation",
-    deps=["raw/events_raw"],
+    deps=[events_raw],
     description=(
         "Validates event data using Great Expectations (coordinate bounds, "
         "non-null keys). Fails fast if checks do not pass."

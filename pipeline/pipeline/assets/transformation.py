@@ -10,6 +10,7 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 
 from pipeline.resources import MinIOResource
+from pipeline.assets.validation import events_validated
 from pipeline.assets.ingestion import (
     RAW_BUCKET,
     TARGET_COMPETITION_ID,
@@ -36,7 +37,7 @@ def _configure_s3(conn, minio: MinIOResource) -> None:
 @dg.asset(
     key_prefix=["trusted"],
     group_name="transformation",
-    deps=["validated/events_validated"],
+    deps=[events_validated],
     description=(
         "Reads all raw event JSON files from MinIO, flattens nested fields, "
         "and writes a single Parquet file to the trusted bucket."
@@ -103,7 +104,7 @@ def events_trusted(
 @dg.asset(
     key_prefix=["trusted"],
     group_name="transformation",
-    deps=["validated/events_validated"],
+    deps=[events_validated],
     description="Reads raw match JSON and writes a structured Parquet to the trusted bucket.",
 )
 def matches_trusted(

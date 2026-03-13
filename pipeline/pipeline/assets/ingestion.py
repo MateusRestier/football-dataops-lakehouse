@@ -56,7 +56,7 @@ def competitions_raw(
 @dg.asset(
     key_prefix=["raw"],
     group_name="ingestion",
-    deps=["raw/competitions_raw"],
+    deps=[competitions_raw],
     description="Fetches match list for the target competition/season.",
 )
 def matches_raw(
@@ -87,7 +87,7 @@ def matches_raw(
 @dg.asset(
     key_prefix=["raw"],
     group_name="ingestion",
-    deps=["raw/matches_raw"],
+    deps=[matches_raw],
     description=(
         "Fetches per-match event streams from StatsBomb and stores one JSON "
         "file per match in MinIO. Idempotent: already-uploaded files are skipped."
