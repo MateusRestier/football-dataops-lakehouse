@@ -1,7 +1,5 @@
-version: "3.8"
-
 x-dagster-env: &dagster-env
-  DAGSTER_HOME: /opt/dagster/app/dagster_home
+  DAGSTER_HOME: /opt/dagster/dagster_home
   MINIO_ENDPOINT: "minio:9000"
   MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
   MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
@@ -48,15 +46,13 @@ services:
 
   dagster-webserver:
     build:
-      context: ./pipeline
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: pipeline/Dockerfile
     command: dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/app/workspace.yaml
     ports:
       - "3000:3000"
     environment:
       <<: *dagster-env
-    volumes:
-      - .:/opt/dagster/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,13 +63,11 @@ services:
 
   dagster-daemon:
     build:
-      context: ./pipeline
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: pipeline/Dockerfile
     command: dagster-daemon run
     environment:
       <<: *dagster-env
-    volumes:
-      - .:/opt/dagster/app
     depends_on:
       postgres:
         condition: service_healthy

@@ -19,6 +19,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [0.3.0] — 2026-03-13
+
+### Corrigido
+- **`docker-compose.yml` + `pipeline/Dockerfile`** — bind mount `- .:/opt/dagster/app` causava falha fatal no Docker Desktop no Windows quando o repositório está dentro de uma pasta do Google Drive for Desktop (`c:\GoogleDrive\...`). O Docker tenta criar o mount em `/run/desktop/mnt/host/c/GoogleDrive/...`, que é um caminho virtual não suportado.
+  - Solução: contexto de build alterado de `./pipeline` para `.` (raiz do projeto); Dockerfile agora copia `workspace.yaml` e `dagster_home/dagster.yaml` para dentro da imagem; bind mounts removidos dos serviços Dagster.
+  - Impacto: mudanças no código Python agora exigem `docker-compose build` antes de `docker-compose up -d`.
+
+---
+
 ## [0.2.0] — 2026-03-13
 
 ### Corrigido

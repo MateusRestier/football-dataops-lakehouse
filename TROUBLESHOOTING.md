@@ -4,6 +4,41 @@ Problemas conhecidos, causas e soluções. Atualizado a cada bug encontrado e co
 
 ---
 
+## Docker / Ambiente
+
+### `error while creating mount source path ... GoogleDrive: file exists`
+
+**Sintoma:**
+```
+Error response from daemon: error while creating mount source path
+'/run/desktop/mnt/host/c/GoogleDrive/...': mkdir .../GoogleDrive: file exists
+```
+
+**Causa:** O Docker Desktop no Windows não consegue fazer bind mount de pastas dentro do Google Drive for Desktop. O `c:\GoogleDrive` é um sistema de arquivos virtual — o Docker tenta criar o ponto de montagem em `/run/desktop/mnt/host/c/GoogleDrive/` e falha porque o caminho já existe como virtual.
+
+**Solução aplicada:** Remover os bind mounts dos serviços Dagster. O Dockerfile agora copia todos os arquivos necessários para dentro da imagem durante o build (contexto `.`, copia `workspace.yaml` e `dagster_home/dagster.yaml`).
+
+**Consequência:** Após qualquer alteração no código Python ou nos arquivos de config, é necessário reconstruir as imagens antes de subir:
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+---
+
+### Warning: `the attribute 'version' is obsolete`
+
+**Sintoma:** Aviso no terminal ao rodar `docker-compose`:
+```
+the attribute `version` is obsolete, it will be ignored
+```
+
+**Causa:** Versões recentes do Docker Compose (v2+) não usam mais o campo `version` no topo do `docker-compose.yml`. É só um aviso — não impede o funcionamento.
+
+**Solução:** Remover a linha `version: "3.8"` do `docker-compose.yml` elimina o aviso. Não afeta o comportamento.
+
+---
+
 ## Dagster
 
 ### Dagster UI não abre em `localhost:3000`
